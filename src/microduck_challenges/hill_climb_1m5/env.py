@@ -35,7 +35,7 @@ ENABLE_SYMMETRY = False
 
 # Track the commanded speed in the LANE's frame (spawn heading, rewards.track_lane_velocity)
 # instead of the trunk's yaw frame: sideways drift and walking turned off the lane stop paying.
-LANE_TRACKING = False
+LANE_TRACKING = True
 
 # Domain randomization toggles
 ENABLE_COM_RANDOMIZATION = True
