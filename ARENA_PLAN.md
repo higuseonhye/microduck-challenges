@@ -6,7 +6,7 @@ These are the additions on this branch, and the order to run them in.
 ## Setup (once per VESSL workspace)
 
 ```bash
-git clone https://github.com/<you>/microduck-challenges && cd microduck-challenges && git checkout arena
+git clone https://github.com/higuseonhye/microduck-challenges && cd microduck-challenges && git checkout arena
 bash scripts/vessl/setup.sh          # uv sync, GPU check, references, pytest
 uv run hf auth login                 # your HF write token, typed by you
 bash scripts/vessl/board.sh          # what first place takes today
@@ -24,7 +24,7 @@ Keep `logs/` on the workspace's persistent volume (symlink it there) so a pause 
 | `scripts/talent_choir.py` | writes `got_a_talent/choir.json`, the 8-duck troupe |
 
 Then publish the winner (on your yes):
-`uv run publish --run logs/rsl_rl/<exp>/<run> --checkpoint <N> --repo <you>/microduck-<name> --no-private --enter`
+`uv run publish --run logs/rsl_rl/<exp>/<run> --checkpoint <N> --repo higuseonhye/microduck-<name> --no-private --enter`
 
 ## Order of battle
 
