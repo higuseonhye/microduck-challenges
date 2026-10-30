@@ -33,6 +33,10 @@ NUM_STEPS_PER_ENV = 24
 # Symmetry
 ENABLE_SYMMETRY = False
 
+# Track the commanded speed in the LANE's frame (spawn heading, rewards.track_lane_velocity)
+# instead of the trunk's yaw frame: sideways drift and walking turned off the lane stop paying.
+LANE_TRACKING = False
+
 # Domain randomization toggles
 ENABLE_COM_RANDOMIZATION = True
 ENABLE_HEAD_COM_RANDOMIZATION = True  # Randomize CoM of the head assembly bodies
@@ -293,6 +297,11 @@ def make_env_cfg(
     # Velocity tracking rewards
     cfg.rewards["track_linear_velocity"].weight = knobs["forward_reward"]
     cfg.rewards["track_linear_velocity"].params["std"] = math.sqrt(0.1)
+    if LANE_TRACKING:
+        from .rewards import track_lane_velocity
+
+        cfg.rewards["track_linear_velocity"].func = track_lane_velocity
+        cfg.rewards["track_linear_velocity"].params = {"std": math.sqrt(0.1), "command_name": "twist"}
     cfg.rewards["track_angular_velocity"].weight = 2.0
     cfg.rewards["track_angular_velocity"].params["std"] = math.sqrt(0.5)
 

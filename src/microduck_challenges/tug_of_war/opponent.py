@@ -13,6 +13,7 @@ The HF job installs no Arena: nothing here imports it; tests/test_tug_of_war.py 
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 import onnx
@@ -23,6 +24,19 @@ from rsl_rl.models import MLPModel
 
 REFERENCE = Path(__file__).with_name("reference.onnx")  # the Arena's reference duck, t20-500, walking upright (Plan I)
 REFERENCE_SEEN = 1003 * 24 * 4096  # t20-500's normalizer count: rollouts (its walker start's 502, its own 501) × steps × envs
+# An opponent pool (league): TUG_OPPONENTS="a.onnx,b.onnx,..." splits the envs evenly between
+# those frozen ducks (env i plays opponent i % k). Unset, the opponent is the reference alone.
+# "reference" in the list stands for reference.onnx. Every file must be the recipe's actor shape.
+OPPONENTS_ENV = "TUG_OPPONENTS"
+
+
+def opponent_paths() -> list[Path]:
+    spec = os.environ.get(OPPONENTS_ENV, "").strip()
+    if not spec:
+        return [REFERENCE]
+    return [REFERENCE if p.strip() == "reference" else Path(p.strip()) for p in spec.split(",") if p.strip()]
+
+
 WARM_START_STD = 0.5  # the warm-started learner's action noise: t20-500's own at 500, 0.36 to 0.70, mean 0.50, it walked upright under
 
 # The actor rsl_rl exports (Decision 4), node by node: its op and attributes, ONNX's defaults in.
@@ -115,7 +129,11 @@ class OpponentAction(JointPositionAction):
 
     def __init__(self, cfg: OpponentActionCfg, env):
         super().__init__(cfg=cfg, env=env)
-        self.policy = load_actor(REFERENCE).to(self.device).eval()
+        self.policies = [load_actor(p).to(self.device).eval() for p in opponent_paths()]
+        self.policy = self.policies[0]
+        k = len(self.policies)
+        owner = torch.arange(self.num_envs, device=self.device) % k
+        self._groups = [torch.nonzero(owner == j).squeeze(-1) for j in range(k)]
         self._command = torch.tensor(cfg.command, device=self.device).expand(self.num_envs, -1)
         # The parent sized its raw action by action_dim, 0: the opponent's is its policy's, (n, 14).
         self._raw_actions = torch.zeros(self.num_envs, self._num_targets, device=self.device)
@@ -153,7 +171,12 @@ class OpponentAction(JointPositionAction):
         velocity for its next observation, as `_Duck.act` does; the parent sets its targets."""
         obs = self.observe()
         with torch.no_grad():
-            action = self.policy(obs)
+            if len(self.policies) == 1:
+                action = self.policy(obs)
+            else:
+                action = torch.empty(obs.shape[0], self._num_targets, device=obs.device)
+                for policy, ids in zip(self.policies, self._groups):
+                    action[ids] = policy(obs[ids])
         self.prev_joint_vel[:] = self._entity.data.joint_vel[:, self.target_ids]
         super().process_actions(action)
 
